@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -87,40 +87,83 @@ const metrics = [
 
 export default function Dashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [shipmentsData, setShipmentsData] = useState(shipments)
+  const [shipmentsData, setShipmentsData] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  
+  // Fetch shipments from API on component mount
+  useEffect(() => {
+    fetchShipments()
+  }, [])
+  
+  const fetchShipments = async () => {
+    try {
+      setIsLoading(true)
+      const response = await fetch('/api/shipments')
+      if (response.ok) {
+        const data = await response.json()
+        // Transform API data to match existing UI expectations
+        const transformedData = data.map((shipment: any) => ({
+          id: shipment.id,
+          supplier: shipment.supplier,
+          status: shipment.shipment_status,
+          statusColor: getStatusColorFromStatus(shipment.shipment_status),
+          riskScore: shipment.risk_score,
+          riskLevel: shipment.risk_level,
+          etd: shipment.etd
+        }))
+        setShipmentsData(transformedData)
+      }
+    } catch (error) {
+      console.error('Error fetching shipments:', error)
+      // Keep empty array on error
+    } finally {
+      setIsLoading(false)
+    }
+  }
+  
+  const getStatusColorFromStatus = (status: string) => {
+    if (status === 'Delivered') return 'green'
+    if (status === 'In Transit' || status === 'Validating' || status === 'AI Processing') return 'blue'
+    if (status === 'At Port' || status === 'Docs Ready') return 'gray'
+    if (status === 'Delayed' || status === 'Customs Hold') return 'yellow'
+    return 'slate'
+  }
 
-  const handleNewShipment = (shipmentData: any) => {
-    const newShipmentId = `SH-${Math.floor(Math.random() * 9000) + 1000}`
-    
-    // Map supplier selection to display name
-    const supplierNames: { [key: string]: string } = {
-      "shenzhen": "Shenzhen Tech",
-      "guangzhou": "Guangzhou Electronics", 
-      "shanghai": "Shanghai Manufacturing",
-      "beijing": "Beijing Components"
+  const handleNewShipment = async (shipmentData: any) => {
+    try {
+      // Send to API to create new shipment
+      const response = await fetch('/api/shipments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(shipmentData),
+      })
+      
+      if (response.ok) {
+        const newShipment = await response.json()
+        
+        // Transform and add to local state immediately
+        const transformedShipment = {
+          id: newShipment.id,
+          supplier: newShipment.supplier,
+          status: newShipment.shipment_status,
+          statusColor: getStatusColorFromStatus(newShipment.shipment_status),
+          riskScore: newShipment.risk_score,
+          riskLevel: newShipment.risk_level,
+          etd: newShipment.etd
+        }
+        
+        setShipmentsData([transformedShipment, ...shipmentsData])
+        
+        // Update the shipment when AI processing completes
+        setTimeout(async () => {
+          await fetchShipments() // Refresh all data
+        }, 3000)
+      }
+    } catch (error) {
+      console.error('Error creating shipment:', error)
     }
-    
-    const newShipment = {
-      id: newShipmentId,
-      supplier: supplierNames[shipmentData.supplier] || shipmentData.supplier || "New Supplier",
-      status: "AI Processing",
-      statusColor: "blue",
-      riskScore: 0, // Will be calculated by AI agents
-      riskLevel: "Analyzing",
-      etd: shipmentData.etd || "TBD",
-    }
-    
-    // Add new shipment to the beginning of the list
-    setShipmentsData([newShipment, ...shipmentsData])
-    
-    // Simulate AI agents starting work - in real app this would trigger backend processing
-    setTimeout(() => {
-      setShipmentsData(prev => prev.map(ship => 
-        ship.id === newShipmentId 
-          ? { ...ship, status: "Validating", riskScore: Math.floor(Math.random() * 50) + 10 }
-          : ship
-      ))
-    }, 2000)
   }
 
   const getRiskBadgeColor = (level: string) => {
@@ -190,7 +233,7 @@ export default function Dashboard() {
                   <Package className="h-5 w-5 text-primary" />
                   <span className="text-sm text-muted-foreground">Active Shipments</span>
                 </div>
-                <div className="text-3xl font-bold text-foreground">5</div>
+                <div className="text-3xl font-bold text-foreground">{shipmentsData.length}</div>
               </Card>
 
               <Card className="p-6 bg-card border-border hover:border-primary/50 transition-colors">
@@ -246,7 +289,23 @@ export default function Dashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {shipmentsData.map((shipment) => (
+                    {isLoading ? (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                          <div className="flex items-center justify-center gap-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent" />
+                            Loading shipments...
+                          </div>
+                        </td>
+                      </tr>
+                    ) : shipmentsData.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                          No shipments found. Create your first shipment to get started.
+                        </td>
+                      </tr>
+                    ) : (
+                      shipmentsData.map((shipment) => (
                       <tr key={shipment.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
                         <td className="py-4 px-4">
                           <span className="font-mono text-sm text-foreground">{shipment.id}</span>
@@ -279,7 +338,8 @@ export default function Dashboard() {
                           </Link>
                         </td>
                       </tr>
-                    ))}
+                    ))
+                  )}
                   </tbody>
                 </table>
               </div>

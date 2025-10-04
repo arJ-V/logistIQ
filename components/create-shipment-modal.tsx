@@ -22,6 +22,8 @@ export function CreateShipmentModal({ open, onOpenChange, onShipmentCreated }: C
   const [supplier, setSupplier] = useState("")
   const [etd, setEtd] = useState("")
   const [port, setPort] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [uploadStatus, setUploadStatus] = useState<string>('')
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
@@ -41,24 +43,63 @@ export function CreateShipmentModal({ open, onOpenChange, onShipmentCreated }: C
     setFiles(files.filter((_, i) => i !== index))
   }
 
-  const handleSubmit = () => {
-    // Gather form data
-    const shipmentData = {
-      supplier,
-      etd,
-      port,
-      files: files.map(f => f.name), // Just store file names for now
+  const handleSubmit = async () => {
+    setIsSubmitting(true)
+    setUploadStatus('')
+    
+    try {
+      // First, upload files if any
+      let uploadResult = null
+      if (files.length > 0) {
+        setUploadStatus('Processing documents...')
+        const formData = new FormData()
+        files.forEach(file => {
+          formData.append('files', file)
+        })
+        
+        const uploadResponse = await fetch('/api/documents/upload', {
+          method: 'POST',
+          body: formData,
+        })
+        
+        if (uploadResponse.ok) {
+          uploadResult = await uploadResponse.json()
+          setUploadStatus(`Extracted data from ${uploadResult.files.length} documents`)
+        }
+      }
+      
+      setUploadStatus('Creating shipment...')
+      
+      // Create shipment with extracted data
+      const shipmentData = {
+        supplier,
+        etd,
+        port,
+        files: files.map(f => f.name),
+        uploadResult // Include extraction results
+      }
+      
+      // Call parent callback to create shipment
+      await onShipmentCreated(shipmentData)
+      
+      setUploadStatus('Shipment created successfully!')
+      
+      // Close modal and reset form after brief delay
+      setTimeout(() => {
+        onOpenChange(false)
+        setSupplier("")
+        setEtd("")
+        setPort("")
+        setFiles([])
+        setUploadStatus('')
+      }, 1000)
+      
+    } catch (error) {
+      console.error('Error creating shipment:', error)
+      setUploadStatus('Error creating shipment. Please try again.')
+    } finally {
+      setIsSubmitting(false)
     }
-    
-    // Call parent callback to add new shipment to dashboard
-    onShipmentCreated(shipmentData)
-    
-    // Close modal and reset form
-    onOpenChange(false)
-    setSupplier("")
-    setEtd("")
-    setPort("")
-    setFiles([])
   }
 
   return (
@@ -174,15 +215,32 @@ export function CreateShipmentModal({ open, onOpenChange, onShipmentCreated }: C
             )}
           </div>
 
+          {uploadStatus && (
+            <div className="p-3 rounded-lg bg-muted/20 border border-border text-sm text-foreground">
+              <div className="flex items-center gap-2">
+                {isSubmitting && (
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent" />
+                )}
+                {uploadStatus}
+              </div>
+            </div>
+          )}
+
           <div className="flex justify-end gap-3 pt-4">
-            <Button variant="outline" onClick={() => onOpenChange(false)} className="border-border hover:bg-muted">
+            <Button 
+              variant="outline" 
+              onClick={() => onOpenChange(false)} 
+              className="border-border hover:bg-muted"
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
             <Button
               onClick={handleSubmit}
+              disabled={isSubmitting}
               className="glow-button bg-primary hover:bg-primary/90 text-primary-foreground"
             >
-              Create Shipment
+              {isSubmitting ? 'Processing...' : 'Create Shipment'}
             </Button>
           </div>
         </div>
