@@ -87,6 +87,41 @@ const metrics = [
 
 export default function Dashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [shipmentsData, setShipmentsData] = useState(shipments)
+
+  const handleNewShipment = (shipmentData: any) => {
+    const newShipmentId = `SH-${Math.floor(Math.random() * 9000) + 1000}`
+    
+    // Map supplier selection to display name
+    const supplierNames: { [key: string]: string } = {
+      "shenzhen": "Shenzhen Tech",
+      "guangzhou": "Guangzhou Electronics", 
+      "shanghai": "Shanghai Manufacturing",
+      "beijing": "Beijing Components"
+    }
+    
+    const newShipment = {
+      id: newShipmentId,
+      supplier: supplierNames[shipmentData.supplier] || shipmentData.supplier || "New Supplier",
+      status: "AI Processing",
+      statusColor: "blue",
+      riskScore: 0, // Will be calculated by AI agents
+      riskLevel: "Analyzing",
+      etd: shipmentData.etd || "TBD",
+    }
+    
+    // Add new shipment to the beginning of the list
+    setShipmentsData([newShipment, ...shipmentsData])
+    
+    // Simulate AI agents starting work - in real app this would trigger backend processing
+    setTimeout(() => {
+      setShipmentsData(prev => prev.map(ship => 
+        ship.id === newShipmentId 
+          ? { ...ship, status: "Validating", riskScore: Math.floor(Math.random() * 50) + 10 }
+          : ship
+      ))
+    }, 2000)
+  }
 
   const getRiskBadgeColor = (level: string) => {
     if (level === "Low") return "bg-green-500/10 text-green-400 border-green-500/20"
@@ -99,6 +134,14 @@ export default function Dashboard() {
     if (color === "blue") return "bg-blue-500/10 text-blue-400 border-blue-500/20"
     if (color === "green") return "bg-green-500/10 text-green-400 border-green-500/20"
     return "bg-slate-600/10 text-slate-500 border-slate-600/20"
+  }
+
+  const getRiskBadgeColorForLevel = (level: string) => {
+    if (level === "Low") return "bg-green-500/10 text-green-400 border-green-500/20"
+    if (level === "Medium") return "bg-yellow-500/10 text-yellow-400 border-yellow-500/20"
+    if (level === "High") return "bg-red-500/10 text-red-400 border-red-500/20"
+    if (level === "Analyzing") return "bg-blue-500/10 text-blue-400 border-blue-500/20"
+    return "bg-slate-500/10 text-slate-400 border-slate-500/20"
   }
 
   return (
@@ -116,7 +159,10 @@ export default function Dashboard() {
                 <Link href="/" className="text-foreground font-medium">
                   Dashboard
                 </Link>
-                <Link href="#" className="text-muted-foreground hover:text-foreground transition-colors">
+                <Link 
+                  href={`/analysis/${shipmentsData.length > 0 ? shipmentsData[0].id : 'SH-2847'}`} 
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
                   Analytics
                 </Link>
                 <Link href="#" className="text-muted-foreground hover:text-foreground transition-colors">
@@ -134,9 +180,9 @@ export default function Dashboard() {
       </nav>
 
       <div className="container mx-auto px-6 py-8">
-        <div className="flex gap-6">
+        <div>
           {/* Main Content */}
-          <div className="flex-1">
+          <div>
             {/* Hero Stats */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
               <Card className="p-6 bg-card border-border hover:border-primary/50 transition-colors">
@@ -200,7 +246,7 @@ export default function Dashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {shipments.map((shipment) => (
+                    {shipmentsData.map((shipment) => (
                       <tr key={shipment.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
                         <td className="py-4 px-4">
                           <span className="font-mono text-sm text-foreground">{shipment.id}</span>
@@ -212,8 +258,11 @@ export default function Dashboard() {
                           </Badge>
                         </td>
                         <td className="py-4 px-4">
-                          <Badge className={`${getRiskBadgeColor(shipment.riskLevel)} border`}>
-                            {shipment.riskScore} {shipment.riskLevel}
+                          <Badge className={`${getRiskBadgeColorForLevel(shipment.riskLevel)} border`}>
+                            {shipment.riskLevel === "Analyzing" 
+                              ? "🤖 Analyzing..." 
+                              : `${shipment.riskScore} ${shipment.riskLevel}`
+                            }
                           </Badge>
                         </td>
                         <td className="py-4 px-4 text-sm text-muted-foreground">{shipment.etd}</td>
@@ -263,33 +312,14 @@ export default function Dashboard() {
               </div>
             </Card>
           </div>
-
-          {/* Right Sidebar - Activity Feed */}
-          <div className="w-80 hidden lg:block">
-            <Card className="p-6 bg-card border-border sticky top-6">
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
-                Autonomous Agent Activity
-              </h2>
-
-              <div className="space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto pr-2">
-                {activities.map((activity, index) => (
-                  <div key={index} className="flex gap-3 pb-4 border-b border-border/50 last:border-0">
-                    <div className={`mt-1 ${activity.color}`}>
-                      <activity.icon className="h-4 w-4" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm text-foreground leading-relaxed">{activity.text}</p>
-                      <span className="text-xs text-muted-foreground">{activity.time}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </div>
         </div>
       </div>
 
-      <CreateShipmentModal open={isModalOpen} onOpenChange={setIsModalOpen} />
+      <CreateShipmentModal 
+        open={isModalOpen} 
+        onOpenChange={setIsModalOpen} 
+        onShipmentCreated={handleNewShipment}
+      />
     </div>
   )
 }

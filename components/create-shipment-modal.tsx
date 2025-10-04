@@ -3,7 +3,6 @@
 import type React from "react"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -14,10 +13,10 @@ import { Upload, X, FileText } from "lucide-react"
 interface CreateShipmentModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onShipmentCreated: (shipmentData: any) => void
 }
 
-export function CreateShipmentModal({ open, onOpenChange }: CreateShipmentModalProps) {
-  const router = useRouter()
+export function CreateShipmentModal({ open, onOpenChange, onShipmentCreated }: CreateShipmentModalProps) {
   const [files, setFiles] = useState<File[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const [supplier, setSupplier] = useState("")
@@ -43,9 +42,23 @@ export function CreateShipmentModal({ open, onOpenChange }: CreateShipmentModalP
   }
 
   const handleSubmit = () => {
-    const newShipmentId = `SH-${Math.floor(Math.random() * 9000) + 1000}`
+    // Gather form data
+    const shipmentData = {
+      supplier,
+      etd,
+      port,
+      files: files.map(f => f.name), // Just store file names for now
+    }
+    
+    // Call parent callback to add new shipment to dashboard
+    onShipmentCreated(shipmentData)
+    
+    // Close modal and reset form
     onOpenChange(false)
-    router.push(`/validate/${newShipmentId}`)
+    setSupplier("")
+    setEtd("")
+    setPort("")
+    setFiles([])
   }
 
   return (

@@ -1,5 +1,6 @@
 "use client"
 
+import { use } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -16,6 +17,7 @@ import {
   Package,
   Ship,
   MapPin,
+  Eye,
 } from "lucide-react"
 import Link from "next/link"
 
@@ -45,7 +47,9 @@ const timeline = [
   { time: "Pending", event: "Submit to customs", status: "pending" },
 ]
 
-export default function ShipmentDetail({ params }: { params: { id: string } }) {
+export default function ShipmentDetail({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = use(params)
+  const shipmentId = resolvedParams.id
   const getDocStatusIcon = (status: string) => {
     if (status === "validated") return <CheckCircle2 className="h-5 w-5 text-green-400" />
     if (status === "warning") return <AlertTriangle className="h-5 w-5 text-yellow-400" />
@@ -91,13 +95,19 @@ export default function ShipmentDetail({ params }: { params: { id: string } }) {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">Shipment {params.id}</h1>
+            <h1 className="text-3xl font-bold text-foreground mb-2">Shipment {shipmentId}</h1>
             <div className="flex items-center gap-4">
               <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20 border">Validating</Badge>
               <span className="text-sm text-muted-foreground">Shenzhen Tech → Los Angeles</span>
             </div>
           </div>
           <div className="flex gap-3">
+            <Link href={`/analysis/${shipmentId}`}>
+              <Button variant="outline" className="border-border hover:bg-muted bg-transparent">
+                <Eye className="h-4 w-4 mr-2" />
+                View Analysis
+              </Button>
+            </Link>
             <Button variant="outline" className="border-border hover:bg-muted bg-transparent">
               <Download className="h-4 w-4 mr-2" />
               Export
