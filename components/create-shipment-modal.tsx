@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Upload, X, FileText } from "lucide-react"
+import { useAiriaAgents } from "@/hooks/use-airia-agents"
 
 interface CreateShipmentModalProps {
   open: boolean
@@ -24,6 +25,9 @@ export function CreateShipmentModal({ open, onOpenChange, onShipmentCreated }: C
   const [port, setPort] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [uploadStatus, setUploadStatus] = useState<string>('')
+
+  // Airia agents integration
+  const { convertPDFToText, pdfText } = useAiriaAgents()
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
