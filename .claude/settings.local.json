@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:docs.structify.ai)"
+      "WebFetch(domain:docs.structify.ai)",
+      "WebFetch(domain:api.airia.ai)",
+      "WebFetch(domain:explore.airia.com)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []

@@ -165,7 +165,10 @@ export function AiriaTest() {
             <strong>API Key:</strong> {process.env.NEXT_PUBLIC_AIRIA_API_KEY ? 'Configured' : 'Not configured'}
           </div>
           <div>
-            <strong>Base URL:</strong> {process.env.NEXT_PUBLIC_AIRIA_BASE_URL || 'https://api.airia.com'}
+            <strong>Base URL:</strong> {process.env.NEXT_PUBLIC_AIRIA_BASE_URL || 'https://api.airia.ai'}
+          </div>
+          <div>
+            <strong>User ID:</strong> {process.env.NEXT_PUBLIC_AIRIA_USER_ID || 'default-user'}
           </div>
         </div>
       </Card>

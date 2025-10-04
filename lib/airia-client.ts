@@ -24,46 +24,47 @@ export interface PDFToTextResult {
 }
 
 // Airia agents configuration
+// Each agent uses the PipelineExecution API endpoint with its GUID
 export const AIRIA_AGENTS: AiriaAgent[] = [
   {
     name: "Route_Validator",
     guid: "71c23734-2a91-4345-bcdf-887717c73769",
-    endpoint: ""
+    endpoint: "https://api.airia.ai/v2/PipelineExecution/71c23734-2a91-4345-bcdf-887717c73769"
   },
   {
-    name: "Value_validator", 
+    name: "Value_validator",
     guid: "07a2107e-9c9b-4cf1-b91c-85d6b07963d9",
-    endpoint: ""
+    endpoint: "https://api.airia.ai/v2/PipelineExecution/07a2107e-9c9b-4cf1-b91c-85d6b07963d9"
   },
   {
     name: "Regulatory_compliance_checker",
-    guid: "cff07b49-dd72-4941-ab48-7da1907b6f4b", 
-    endpoint: ""
+    guid: "cff07b49-dd72-4941-ab48-7da1907b6f4b",
+    endpoint: "https://api.airia.ai/v2/PipelineExecution/cff07b49-dd72-4941-ab48-7da1907b6f4b"
   },
   {
     name: "Supplier_History_Analyzer",
     guid: "5fdf36fa-632a-4154-ba92-d182bf93cb72",
-    endpoint: ""
+    endpoint: "https://api.airia.ai/v2/PipelineExecution/5fdf36fa-632a-4154-ba92-d182bf93cb72"
   },
   {
     name: "Risk Scorer_&_Prioritizer",
     guid: "bb5aa7e3-a134-4866-98d7-74c8b311fc53",
-    endpoint: ""
+    endpoint: "https://api.airia.ai/v2/PipelineExecution/bb5aa7e3-a134-4866-98d7-74c8b311fc53"
   },
   {
-    name: "Document_consistency_checker", 
+    name: "Document_consistency_checker",
     guid: "f0265e05-d232-45f7-aab5-c0bc2b870171",
-    endpoint: ""
+    endpoint: "https://api.airia.ai/v2/PipelineExecution/f0265e05-d232-45f7-aab5-c0bc2b870171"
   },
   {
     name: "hs_code_validator",
     guid: "09d34238-c58a-41ff-8034-7f9ebe3e1d73",
-    endpoint: ""
+    endpoint: "https://api.airia.ai/v2/PipelineExecution/09d34238-c58a-41ff-8034-7f9ebe3e1d73"
   },
   {
     name: "Origin_validator",
     guid: "f182b7d5-5da3-4a90-b535-122e88f96087",
-    endpoint: ""
+    endpoint: "https://api.airia.ai/v2/PipelineExecution/f182b7d5-5da3-4a90-b535-122e88f96087"
   }
 ];
 
@@ -73,7 +74,7 @@ class AiriaClient {
 
   constructor() {
     this.apiKey = process.env.NEXT_PUBLIC_AIRIA_API_KEY || '';
-    this.baseUrl = process.env.NEXT_PUBLIC_AIRIA_BASE_URL || 'https://api.airia.com';
+    this.baseUrl = process.env.NEXT_PUBLIC_AIRIA_BASE_URL || 'https://api.airia.ai';
   }
 
   /**
@@ -112,43 +113,70 @@ class AiriaClient {
    * Send text input to a specific Airia agent
    */
   async sendToAgent(agentGuid: string, textInput: string): Promise<AiriaResponse> {
+    const startTime = Date.now();
+    const agent = AIRIA_AGENTS.find(a => a.guid === agentGuid);
+    const agentName = agent?.name || 'Unknown';
+
     try {
-      const agent = AIRIA_AGENTS.find(a => a.guid === agentGuid);
       if (!agent) {
         throw new Error(`Agent with GUID ${agentGuid} not found`);
       }
 
-      // Use the agent's specific endpoint if available, otherwise use the generic endpoint
-      const endpoint = agent.endpoint || `${this.baseUrl}/agents/${agentGuid}/process`;
+      if (!this.apiKey) {
+        throw new Error('API key not configured. Please set NEXT_PUBLIC_AIRIA_API_KEY in .env.local');
+      }
+
+      // Use the agent's PipelineExecution endpoint
+      const endpoint = agent.endpoint || `${this.baseUrl}/v2/PipelineExecution/${agentGuid}`;
+
+      console.log(`[Airia Client] Calling agent: ${agentName}`);
+      console.log(`[Airia Client] Endpoint: ${endpoint}`);
+      console.log(`[Airia Client] Input length: ${textInput.length} chars`);
+
+      // Airia PipelineExecution API expects userId, userInput, and asyncOutput
+      const requestBody = {
+        userId: process.env.NEXT_PUBLIC_AIRIA_USER_ID || 'default-user',
+        userInput: textInput,
+        asyncOutput: false
+      };
 
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`,
+          'X-API-KEY': this.apiKey, // Note: uppercase KEY
         },
-        body: JSON.stringify({
-          input: textInput,
-          agent_guid: agentGuid
-        }),
+        body: JSON.stringify(requestBody),
       });
 
+      const responseText = await response.text();
+      console.log(`[Airia Client] Response status: ${response.status}`);
+      console.log(`[Airia Client] Response body:`, responseText.substring(0, 200));
+
       if (!response.ok) {
-        throw new Error(`Airia API error: ${response.statusText}`);
+        throw new Error(`Airia API error (${response.status}): ${responseText}`);
       }
 
-      const data = await response.json();
+      const data = JSON.parse(responseText);
+      const executionTime = Date.now() - startTime;
+
       return {
         success: true,
         data: data,
-        agent_name: agent.name,
-        execution_time: data.execution_time
+        agent_name: agentName,
+        execution_time: executionTime
       };
     } catch (error) {
+      const executionTime = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+      console.error(`[Airia Client] Error calling agent ${agentName}:`, errorMessage);
+
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        agent_name: AIRIA_AGENTS.find(a => a.guid === agentGuid)?.name || 'Unknown'
+        error: errorMessage,
+        agent_name: agentName,
+        execution_time: executionTime
       };
     }
   }

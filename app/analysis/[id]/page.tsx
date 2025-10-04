@@ -60,12 +60,20 @@ export default function AnalysisPage() {
   const router = useRouter()
   const shipmentId = params.id as string
 
-  const { results } = useAiriaAgents()
+  const { results, processWithAllAgents, isProcessing } = useAiriaAgents()
   const [analysisResults, setAnalysisResults] = useState<AiriaResponse[]>([])
 
+  // Call agents when page loads
   useEffect(() => {
-    // In a real implementation, you would fetch the results from a store or API
-    // For now, we'll use the results from the hook
+    console.log('[Analysis Page] Component mounted, loading agents')
+    import('@/lib/dummy-documents').then(({ COMBINED_SHIPMENT_DOCUMENTS }) => {
+      console.log('[Analysis Page] Starting agent processing')
+      processWithAllAgents(COMBINED_SHIPMENT_DOCUMENTS)
+    })
+  }, [])
+
+  useEffect(() => {
+    console.log('[Analysis Page] Results updated:', results.length)
     setAnalysisResults(results)
   }, [results])
 

@@ -141,19 +141,16 @@ export default function ValidatePage() {
 
   // Start processing when component mounts
   useEffect(() => {
-    // Sample text input - in real implementation, this would come from uploaded PDFs
-    const sampleText = `Commercial Invoice #INV-2025-001
-Supplier: Shenzhen Tech Co.
-Products: Electronic components
-Total Value: $15,000
-HS Codes: 8471.30.01, 8517.12.00
-Country of Origin: China
-Destination: Los Angeles, CA
-ETD: 2025-01-15`
-
-    // Start processing with all agents
-    processWithAllAgents(sampleText)
-  }, [processWithAllAgents])
+    console.log('[Validate Page] Component mounted, preparing to call agents')
+    // Import and use the combined dummy documents
+    import('@/lib/dummy-documents').then(({ COMBINED_SHIPMENT_DOCUMENTS }) => {
+      console.log('[Validate Page] Dummy documents loaded, length:', COMBINED_SHIPMENT_DOCUMENTS.length)
+      console.log('[Validate Page] Starting agent processing with all 8 agents')
+      processWithAllAgents(COMBINED_SHIPMENT_DOCUMENTS)
+    }).catch(err => {
+      console.error('[Validate Page] Error loading dummy documents:', err)
+    })
+  }, [])
 
   // Update agent states based on processing status
   useEffect(() => {
@@ -200,7 +197,7 @@ ETD: 2025-01-15`
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-foreground mb-2">VALIDATING SHIPMENT</h1>
-            <p className="text-muted-foreground">{deployedAgents} of 9 agents deployed</p>
+            <p className="text-muted-foreground">{completedAgents.length} of {AIRIA_AGENTS.length} agents deployed</p>
           </div>
           <div className="text-5xl font-bold text-foreground">{elapsedTime.toFixed(1)}s</div>
         </div>
@@ -265,8 +262,37 @@ ETD: 2025-01-15`
           <div className="w-80">
             <Card className="p-6 bg-card border-border">
               <h2 className="text-xl font-bold text-foreground mb-4">LIVE FINDINGS</h2>
-              <div className="text-muted-foreground">
-                <p className="text-sm">Analyzing documents...</p>
+              <div className="text-muted-foreground space-y-3">
+                {isProcessing && <p className="text-sm">Analyzing documents...</p>}
+
+                {/* Show errors if any */}
+                {errors.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-red-500">Errors:</p>
+                    {errors.map((error, idx) => (
+                      <div key={idx} className="text-xs text-red-400 bg-red-950/20 p-2 rounded">
+                        {error}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Show completed results */}
+                {results.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-green-500">
+                      {results.filter(r => r.success).length} completed
+                    </p>
+                    {results.slice(-3).reverse().map((result, idx) => (
+                      <div key={idx} className="text-xs">
+                        <span className={result.success ? 'text-green-400' : 'text-red-400'}>
+                          {result.success ? '✓' : '✗'}
+                        </span>
+                        {' '}{result.agent_name}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </Card>
           </div>
