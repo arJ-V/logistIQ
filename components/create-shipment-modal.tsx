@@ -3,7 +3,6 @@
 import type React from "react"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -14,15 +13,17 @@ import { Upload, X, FileText } from "lucide-react"
 interface CreateShipmentModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onShipmentCreated: (shipmentData: any) => void
 }
 
-export function CreateShipmentModal({ open, onOpenChange }: CreateShipmentModalProps) {
-  const router = useRouter()
+export function CreateShipmentModal({ open, onOpenChange, onShipmentCreated }: CreateShipmentModalProps) {
   const [files, setFiles] = useState<File[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const [supplier, setSupplier] = useState("")
   const [etd, setEtd] = useState("")
   const [port, setPort] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [uploadStatus, setUploadStatus] = useState<string>('')
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
@@ -42,10 +43,63 @@ export function CreateShipmentModal({ open, onOpenChange }: CreateShipmentModalP
     setFiles(files.filter((_, i) => i !== index))
   }
 
-  const handleSubmit = () => {
-    const newShipmentId = `SH-${Math.floor(Math.random() * 9000) + 1000}`
-    onOpenChange(false)
-    router.push(`/validate/${newShipmentId}`)
+  const handleSubmit = async () => {
+    setIsSubmitting(true)
+    setUploadStatus('')
+    
+    try {
+      // First, upload files if any
+      let uploadResult = null
+      if (files.length > 0) {
+        setUploadStatus('Processing documents...')
+        const formData = new FormData()
+        files.forEach(file => {
+          formData.append('files', file)
+        })
+        
+        const uploadResponse = await fetch('/api/documents/upload', {
+          method: 'POST',
+          body: formData,
+        })
+        
+        if (uploadResponse.ok) {
+          uploadResult = await uploadResponse.json()
+          setUploadStatus(`Extracted data from ${uploadResult.files.length} documents`)
+        }
+      }
+      
+      setUploadStatus('Creating shipment...')
+      
+      // Create shipment with extracted data
+      const shipmentData = {
+        supplier,
+        etd,
+        port,
+        files: files.map(f => f.name),
+        uploadResult // Include extraction results
+      }
+      
+      // Call parent callback to create shipment
+      await onShipmentCreated(shipmentData)
+      
+      setUploadStatus('Shipment created successfully!')
+      
+      // Close modal and reset form after brief delay
+      setTimeout(() => {
+        onOpenChange(false)
+        setSupplier("")
+        setEtd("")
+        setPort("")
+        setFiles([])
+        setUploadStatus('')
+      }, 1000)
+      
+    } catch (error) {
+      console.error('Error creating shipment:', error)
+      setUploadStatus('Error creating shipment. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -161,15 +215,32 @@ export function CreateShipmentModal({ open, onOpenChange }: CreateShipmentModalP
             )}
           </div>
 
+          {uploadStatus && (
+            <div className="p-3 rounded-lg bg-muted/20 border border-border text-sm text-foreground">
+              <div className="flex items-center gap-2">
+                {isSubmitting && (
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent" />
+                )}
+                {uploadStatus}
+              </div>
+            </div>
+          )}
+
           <div className="flex justify-end gap-3 pt-4">
-            <Button variant="outline" onClick={() => onOpenChange(false)} className="border-border hover:bg-muted">
+            <Button 
+              variant="outline" 
+              onClick={() => onOpenChange(false)} 
+              className="border-border hover:bg-muted"
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
             <Button
               onClick={handleSubmit}
+              disabled={isSubmitting}
               className="glow-button bg-primary hover:bg-primary/90 text-primary-foreground"
             >
-              Create Shipment
+              {isSubmitting ? 'Processing...' : 'Create Shipment'}
             </Button>
           </div>
         </div>
