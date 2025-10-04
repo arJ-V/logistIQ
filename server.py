@@ -9,6 +9,15 @@ load_dotenv()
 
 mcp = FastMCP("CrossCheck AI - Trade Compliance Tools")
 
+# Airia client for testing
+try:
+    from airia import AiriaClient
+    AIRIA_API_KEY = os.getenv("AIRIA_API_KEY")
+    airia_client = AiriaClient(api_key=AIRIA_API_KEY) if AIRIA_API_KEY else None
+except ImportError:
+    airia_client = None
+    print("Airia SDK not installed. Run: pip install airia")
+
 # DeepL Translator
 DEEPL_API_KEY = os.getenv("DEEPL_API_KEY")
 translator = deepl.Translator(DEEPL_API_KEY) if DEEPL_API_KEY else None
@@ -688,17 +697,146 @@ def get_import_restrictions() -> dict:
             "error": str(e)
         }
 
+# ============================================================================
+# AIRIA TESTING TOOLS
+# ============================================================================
+
+@mcp.tool()
+def test_airia_agent(agent_guid: str, test_input: str) -> dict:
+    """
+    Test an Airia agent with sample input.
+    
+    Args:
+        agent_guid: The GUID of the agent to test
+        test_input: Sample input text to send to the agent
+    
+    Returns:
+        Test results from the agent
+    """
+    try:
+        if not airia_client:
+            return {
+                "success": False,
+                "error": "Airia client not configured. Set AIRIA_API_KEY environment variable."
+            }
+        
+        # Execute pipeline for the agent
+        response = airia_client.pipeline_execution.execute_pipeline(
+            pipeline_id=agent_guid,
+            user_input=test_input
+        )
+        
+        return {
+            "success": True,
+            "agent_guid": agent_guid,
+            "test_input": test_input,
+            "result": response.result,
+            "status": "completed"
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "agent_guid": agent_guid,
+            "test_input": test_input
+        }
+
+@mcp.tool()
+def test_all_airia_agents(test_input: str) -> dict:
+    """
+    Test all configured Airia agents with sample input.
+    
+    Args:
+        test_input: Sample input text to send to all agents
+    
+    Returns:
+        Test results from all agents
+    """
+    try:
+        if not airia_client:
+            return {
+                "success": False,
+                "error": "Airia client not configured. Set AIRIA_API_KEY environment variable."
+            }
+        
+        # Agent GUIDs from the configuration
+        agent_guids = [
+            "71c23734-2a91-4345-bcdf-887717c73769",  # Route_Validator
+            "07a2107e-9c9b-4cf1-b91c-85d6b07963d9",  # Value_validator
+            "cff07b49-dd72-4941-ab48-7da1907b6f4b",  # Regulatory_compliance_checker
+            "5fdf36fa-632a-4154-ba92-d182bf93cb72",  # Supplier_History_Analyzer
+            "bb5aa7e3-a134-4866-98d7-74c8b311fc53",  # Risk Scorer_&_Prioritizer
+            "f0265e05-d232-45f7-aab5-c0bc2b870171",  # Document_consistency_checker
+            "09d34238-c58a-41ff-8034-7f9ebe3e1d73",  # hs_code_validator
+            "f182b7d5-5da3-4a90-b535-122e88f96087",  # Origin_validator
+        ]
+        
+        results = []
+        
+        for guid in agent_guids:
+            try:
+                response = airia_client.pipeline_execution.execute_pipeline(
+                    pipeline_id=guid,
+                    user_input=test_input
+                )
+                results.append({
+                    "agent_guid": guid,
+                    "success": True,
+                    "result": response.result
+                })
+            except Exception as e:
+                results.append({
+                    "agent_guid": guid,
+                    "success": False,
+                    "error": str(e)
+                })
+        
+        return {
+            "success": True,
+            "test_input": test_input,
+            "total_agents": len(agent_guids),
+            "successful_tests": len([r for r in results if r["success"]]),
+            "failed_tests": len([r for r in results if not r["success"]]),
+            "results": results
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "test_input": test_input
+        }
+
+@mcp.tool()
+def get_airia_status() -> dict:
+    """
+    Get the status of Airia integration.
+    
+    Returns:
+        Status information about Airia configuration
+    """
+    return {
+        "success": True,
+        "airia_sdk_installed": airia_client is not None,
+        "api_key_configured": bool(os.getenv("AIRIA_API_KEY")),
+        "client_initialized": airia_client is not None,
+        "total_agents": 8
+    }
+
 if __name__ == "__main__":
     print("=" * 70)
     print("CrossCheck AI - Clean MCP Server")
     print("=" * 70)
     print(f"DeepL Translation: {'Enabled' if translator else 'Disabled'}")
-    print(f"Total Tools: 17 (data-only utilities)")
+    print(f"Airia Integration: {'Enabled' if airia_client else 'Disabled'}")
+    print(f"Total Tools: 20 (data-only utilities + Airia testing)")
     print("\nTool Categories:")
     print("  - Translation: 2 tools")
     print("  - Document Retrieval: 4 tools")
     print("  - Calculations: 3 tools")
     print("  - Reference Lookups: 8 tools")
+    print("  - Airia Testing: 3 tools")
     print("\nAll interpretation & decision-making handled by AI agents!")
     print("=" * 70)
     mcp.run()

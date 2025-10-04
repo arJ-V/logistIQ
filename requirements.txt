@@ -2,3 +2,4 @@ fastmcp
 pydantic
 deepl
 python-dotenv
+airia

@@ -6,16 +6,38 @@ This document explains how to configure and use the Airia agents integration in 
 
 ### 1. Environment Configuration
 
+**Option A: Automatic Setup**
+Run the setup script to create the environment file:
+```bash
+python setup_airia.py
+```
+
+**Option B: Manual Setup**
 Create a `.env.local` file in the root directory with the following variables:
 
 ```env
 # Airia API Configuration
+AIRIA_API_KEY=your_airia_api_key_here
+
+# Frontend environment variables (for Next.js)
 NEXT_PUBLIC_AIRIA_API_KEY=your_airia_api_key_here
 NEXT_PUBLIC_AIRIA_BASE_URL=https://api.airia.com
 
 # DeepL Translation (existing)
 DEEPL_API_KEY=your_deepl_api_key_here
 ```
+
+### 2. Testing the Integration
+
+**Test the Python Backend:**
+```bash
+python test_airia.py
+```
+
+**Test the Frontend:**
+1. Start the Next.js development server: `npm run dev`
+2. Navigate to the validation page
+3. Upload a document to trigger agent processing
 
 ### 2. Obtaining Airia API Credentials
 

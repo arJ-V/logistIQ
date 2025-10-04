@@ -118,18 +118,16 @@ class AiriaClient {
         throw new Error(`Agent with GUID ${agentGuid} not found`);
       }
 
-      // Use the agent's specific endpoint if available, otherwise use the generic endpoint
-      const endpoint = agent.endpoint || `${this.baseUrl}/agents/${agentGuid}/process`;
-
-      const response = await fetch(endpoint, {
+      // For now, we'll use the Python backend API endpoint
+      // This ensures we use the working configuration that was tested
+      const response = await fetch('/api/airia/process', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify({
-          input: textInput,
-          agent_guid: agentGuid
+          agent_guid: agentGuid,
+          user_input: textInput
         }),
       });
 
@@ -138,12 +136,21 @@ class AiriaClient {
       }
 
       const data = await response.json();
-      return {
-        success: true,
-        data: data,
-        agent_name: agent.name,
-        execution_time: data.execution_time
-      };
+      
+      if (data.success) {
+        return {
+          success: true,
+          data: data.result,
+          agent_name: agent.name,
+          execution_time: data.execution_time
+        };
+      } else {
+        return {
+          success: false,
+          error: data.error || 'Unknown error',
+          agent_name: agent.name
+        };
+      }
     } catch (error) {
       return {
         success: false,
